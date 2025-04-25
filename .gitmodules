@@ -1,3 +1,6 @@
 [submodule "Begginer/lib/forge-std"]
 	path = Begginer/lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
+[submodule "Begginer/lib/openzeppelin-contracts"]
+	path = Begginer/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
