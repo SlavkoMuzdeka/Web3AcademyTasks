@@ -1,66 +1,53 @@
-## Foundry
+# ERC20 and ERC721 deployment with Foundry
+This project is a beginner-level exploration of Ethereum smart contract development using the `Foundry` toolkit. As part of the [`Web3 Academy`](https://web3.ain.rs/index.html), I created and deployed two smart contracts to the `Sepolia` testnet:
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+- An `ERC20` token (fungible — like `cryptocurrencies`)
+- An `ERC721` token (non-fungible — like `NFTs`)
 
-Foundry consists of:
+These contracts are located in the `src/` folder and are deployed using scripts from the `script/` directory.
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+## What Are ERC20 and ERC721?
 
-## Documentation
+- `ERC20` is a standard interface for fungible tokens — meaning each token is identical and interchangeable with others.
 
-https://book.getfoundry.sh/
+- `ERC721` is a standard for `NFTs`, where each token is unique and non-interchangeable.
 
-## Usage
+My tokens uses OpenZeppelin Contracts, a library of secure and widely adopted smart contract implementations.
 
-### Build
+To install the `OpenZeppelin` library:
 
-```shell
-$ forge build
+```bash
+forge install openzeppelin/openzeppelin-contracts
 ```
 
-### Test
+## Deploying Smart Contracts to Sepolia
 
-```shell
-$ forge test
+### 1. Get `Sepolia ETH`
+
+To deploy, you’ll need some `ETH` on the `Sepolia testnet`. You can request it from a `Sepolia` faucet.
+
+### 2. Setup your wallet in `Foundry`
+
+Securely import your deployer account (you’ll be prompted to input your private key and create a password):
+
+```bash
+cast wallet import deployer --interactive
+```
+⚠️**NOTE**: Do `not share` or `commit` your private key to any public repository.
+
+Confirm it's been imported:
+
+```bash
+cast wallet list
 ```
 
-### Format
+### 3. Configure Environment Variables
 
-```shell
-$ forge fmt
+Create a `.env` file and add:
+
+```env
+SEPOLIA_URL="https://sepolia.infura.io/v3/your_project_id"
+SEPOLIA_KEY="your_etherscan_api_key"
 ```
 
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+You can use `Infura` or `Alchemy` to get an `RPC URL`, and generate an `API` key by registering on `Etherscan`.
