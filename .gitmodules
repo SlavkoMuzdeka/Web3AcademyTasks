@@ -4,3 +4,9 @@
 [submodule "Begginer/lib/openzeppelin-contracts"]
 	path = Begginer/lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "Advanced/contracts/lib/forge-std"]
+	path = Advanced/contracts/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "Advanced/contracts/lib/openzeppelin-contracts"]
+	path = Advanced/contracts/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
