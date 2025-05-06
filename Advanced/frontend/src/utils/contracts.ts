@@ -1,4 +1,4 @@
-import { ethers, Provider } from "ethers";
+import { ethers } from "ethers";
 
 import PairABI from "../abis/Pair.json";
 import RouterABI from "../abis/Router.json";
@@ -13,7 +13,6 @@ export const CONTRACT_ADDRESSES = {
   Pair: "0x...",
 };
 
-// These should be updated with your actual ABIs after compiling contracts
 export function getFactoryContract(provider: ethers.Provider | ethers.Signer) {
   return new ethers.Contract(
     CONTRACT_ADDRESSES.Factory,

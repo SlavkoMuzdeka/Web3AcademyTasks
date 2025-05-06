@@ -1,17 +1,12 @@
-import React, {
-  useState,
-  useEffect,
-  ReactNode,
-  useContext,
-  createContext,
-} from "react";
 import { ethers } from "ethers";
+import { Web3ContextProps } from "../types";
+import React, { createContext, useState, useEffect, ReactNode } from "react";
 import {
   getPairContract,
   getTokenContract,
   getRouterContract,
-  CONTRACT_ADDRESSES,
   getFactoryContract,
+  CONTRACT_ADDRESSES,
 } from "../utils/contracts";
 
 declare global {
@@ -20,20 +15,7 @@ declare global {
   }
 }
 
-interface Web3ContextProps {
-  provider: ethers.Provider | null;
-  signer: ethers.Signer | null;
-  account: string | null;
-  chainId: number | null;
-  factoryContract: ethers.Contract | null;
-  routerContract: ethers.Contract | null;
-  pairContract: ethers.Contract | null;
-  tokenAContract: ethers.Contract | null;
-  tokenBContract: ethers.Contract | null;
-  connectWallet: () => Promise<void>;
-}
-
-const Web3Context = createContext<Web3ContextProps>({
+export const Web3Context = createContext<Web3ContextProps>({
   provider: null,
   signer: null,
   account: null,
@@ -46,14 +28,10 @@ const Web3Context = createContext<Web3ContextProps>({
   connectWallet: async () => {},
 });
 
-export const useWeb3 = () => useContext(Web3Context);
-
-interface Web3ProviderProps {
-  children: ReactNode;
-}
-
-export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
-  const [provider, setProvider] = useState<ethers.Provider | null>(null);
+export const Web3Provider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
+  const [provider, setProvider] = useState<ethers.BrowserProvider | null>(null);
   const [signer, setSigner] = useState<ethers.Signer | null>(null);
   const [account, setAccount] = useState<string | null>(null);
   const [chainId, setChainId] = useState<number | null>(null);
@@ -75,64 +53,39 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
   const connectWallet = async () => {
     if (window.ethereum) {
       try {
-        await window.ethereum.request({ method: "eth_requestAccounts" });
+        const ethProvider = new ethers.BrowserProvider(window.ethereum);
+        await ethProvider.send("eth_requestAccounts", []);
+        const ethSigner = await ethProvider.getSigner();
+        const address = await ethSigner.getAddress();
+        const { chainId } = await ethProvider.getNetwork();
 
-        const ethersProvider = new ethers.Provider(window.ethereum);
-        setProvider(ethersProvider);
-
-        const ethersSigner = ethersProvider.getSigner();
-        setSigner(ethersSigner);
-
-        const address = await ethersSigner.getAddress();
+        setProvider(ethProvider);
+        setSigner(ethSigner);
         setAccount(address);
-
-        const { chainId } = await ethersProvider.getNetwork();
-        setChainId(chainId);
-
-        const factory = getFactoryContract(ethersSigner);
-        setFactoryContract(factory);
-
-        const router = getRouterContract(ethersSigner);
-        setRouterContract(router);
-
-        const pair = getPairContract(ethersSigner);
-        setPairContract(pair);
-
-        const tokenA = getTokenContract(
-          CONTRACT_ADDRESSES.TokenA,
-          ethersSigner
+        setChainId(Number(chainId));
+        setFactoryContract(getFactoryContract(ethSigner));
+        setRouterContract(getRouterContract(ethSigner));
+        setPairContract(getPairContract(ethSigner));
+        setTokenAContract(
+          getTokenContract(CONTRACT_ADDRESSES.TokenA, ethSigner)
         );
-        setTokenAContract(tokenA);
-
-        const tokenB = getTokenContract(
-          CONTRACT_ADDRESSES.TokenB,
-          ethersSigner
+        setTokenBContract(
+          getTokenContract(CONTRACT_ADDRESSES.TokenB, ethSigner)
         );
-        setTokenBContract(tokenB);
       } catch (error) {
         console.error("Error connecting to wallet:", error);
       }
-    } else {
-      console.error(
-        "Ethereum provider not found. Install MetaMask or another wallet."
-      );
     }
   };
 
   useEffect(() => {
     if (window.ethereum) {
       window.ethereum.on("accountsChanged", (accounts: string[]) => {
-        if (accounts.length > 0) {
-          setAccount(accounts[0]);
-        } else {
-          setAccount(null);
-        }
+        setAccount(accounts[0] || null);
       });
-
       window.ethereum.on("chainChanged", (chainId: string) => {
         setChainId(parseInt(chainId, 16));
       });
-
       return () => {
         window.ethereum.removeAllListeners("accountsChanged");
         window.ethereum.removeAllListeners("chainChanged");

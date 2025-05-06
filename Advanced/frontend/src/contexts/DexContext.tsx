@@ -1,54 +1,16 @@
 import React, {
   createContext,
-  useContext,
   useState,
   useEffect,
   ReactNode,
+  useContext,
 } from "react";
 import { ethers } from "ethers";
-import { useWeb3 } from "./Web3Context";
+import { Web3Context } from "./Web3Context";
 import { CONTRACT_ADDRESSES } from "../utils/contracts";
+import { TokenInfo, PairInfo, DexContextProps } from "../types";
 
-interface TokenInfo {
-  address: string;
-  symbol: string;
-  name: string;
-  decimals: number;
-  balance: string;
-}
-
-interface DexContextProps {
-  tokenA: TokenInfo | null;
-  tokenB: TokenInfo | null;
-  pairInfo: {
-    reserveA: string;
-    reserveB: string;
-    lpTokenBalance: string;
-    totalSupply: string;
-  };
-  refreshBalances: () => Promise<void>;
-  calculateSwapAmount: (amountIn: string, tokenIn: string) => Promise<string>;
-  executeSwap: (
-    amountIn: string,
-    amountOutMin: string,
-    tokenIn: string,
-    tokenOut: string
-  ) => Promise<ethers.ContractTransaction>;
-  addLiquidity: (
-    amountA: string,
-    amountB: string,
-    amountAMin: string,
-    amountBMin: string
-  ) => Promise<ethers.ContractTransaction>;
-  removeLiquidity: (
-    liquidity: string,
-    amountAMin: string,
-    amountBMin: string
-  ) => Promise<ethers.ContractTransaction>;
-  loading: boolean;
-}
-
-const DexContext = createContext<DexContextProps>({
+export const DexContext = createContext<DexContextProps>({
   tokenA: null,
   tokenB: null,
   pairInfo: {
@@ -59,19 +21,15 @@ const DexContext = createContext<DexContextProps>({
   },
   refreshBalances: async () => {},
   calculateSwapAmount: async () => "0",
-  executeSwap: async () => ({} as ethers.ContractTransaction),
-  addLiquidity: async () => ({} as ethers.ContractTransaction),
-  removeLiquidity: async () => ({} as ethers.ContractTransaction),
+  executeSwap: async () => ({} as ethers.TransactionResponse),
+  addLiquidity: async () => ({} as ethers.TransactionResponse),
+  removeLiquidity: async () => ({} as ethers.TransactionResponse),
   loading: false,
 });
 
-export const useDex = () => useContext(DexContext);
-
-interface DexProviderProps {
-  children: ReactNode;
-}
-
-export const DexProvider: React.FC<DexProviderProps> = ({ children }) => {
+export const DexProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
   const {
     account,
     signer,
@@ -79,24 +37,16 @@ export const DexProvider: React.FC<DexProviderProps> = ({ children }) => {
     pairContract,
     tokenAContract,
     tokenBContract,
-  } = useWeb3();
-
+  } = useContext(Web3Context);
   const [tokenA, setTokenA] = useState<TokenInfo | null>(null);
   const [tokenB, setTokenB] = useState<TokenInfo | null>(null);
-  const [pairInfo, setPairInfo] = useState({
+  const [pairInfo, setPairInfo] = useState<PairInfo>({
     reserveA: "0",
     reserveB: "0",
     lpTokenBalance: "0",
     totalSupply: "0",
   });
   const [loading, setLoading] = useState<boolean>(false);
-
-  // Initialize token info and balances
-  useEffect(() => {
-    if (account && tokenAContract && tokenBContract) {
-      refreshBalances();
-    }
-  }, [account, tokenAContract, tokenBContract]);
 
   const refreshBalances = async () => {
     if (
@@ -106,54 +56,55 @@ export const DexProvider: React.FC<DexProviderProps> = ({ children }) => {
       !pairContract ||
       !tokenAContract ||
       !tokenBContract
-    ) {
+    )
       return;
-    }
-
     setLoading(true);
     try {
-      // Get token A info
-      const nameA = await tokenAContract.name();
-      const symbolA = await tokenAContract.symbol();
-      const decimalsA = await tokenAContract.decimals();
-      const balanceA = await tokenAContract.balanceOf(account);
-
+      const [nameA, symbolA, decimalsA, balanceA] = await Promise.all([
+        tokenAContract.name(),
+        tokenAContract.symbol(),
+        tokenAContract.decimals(),
+        tokenAContract.balanceOf(account),
+      ]);
       setTokenA({
         address: CONTRACT_ADDRESSES.TokenA,
         name: nameA,
         symbol: symbolA,
         decimals: decimalsA,
-        balance: ethers.utils.formatEther(balanceA),
+        balance: ethers.formatUnits(balanceA, decimalsA),
       });
 
-      // Get token B info
-      const nameB = await tokenBContract.name();
-      const symbolB = await tokenBContract.symbol();
-      const decimalsB = await tokenBContract.decimals();
-      const balanceB = await tokenBContract.balanceOf(account);
-
+      const [nameB, symbolB, decimalsB, balanceB] = await Promise.all([
+        tokenBContract.name(),
+        tokenBContract.symbol(),
+        tokenBContract.decimals(),
+        tokenBContract.balanceOf(account),
+      ]);
       setTokenB({
         address: CONTRACT_ADDRESSES.TokenB,
         name: nameB,
         symbol: symbolB,
         decimals: decimalsB,
-        balance: ethers.utils.formatEther(balanceB),
+        balance: ethers.formatUnits(balanceB, decimalsB),
       });
 
-      // Get pair info
-      const [reserveA, reserveB] = await routerContract.getReserves(
-        CONTRACT_ADDRESSES.TokenA,
-        CONTRACT_ADDRESSES.TokenB
-      );
-
-      const lpTokenBalance = await pairContract.balanceOf(account);
-      const totalSupply = await pairContract.totalSupply();
+      const [reserveA, reserveB, lpTokenBalance, totalSupply] =
+        await Promise.all([
+          routerContract
+            .getReserves(CONTRACT_ADDRESSES.TokenA, CONTRACT_ADDRESSES.TokenB)
+            .then((res: any) => res[0]),
+          routerContract
+            .getReserves(CONTRACT_ADDRESSES.TokenA, CONTRACT_ADDRESSES.TokenB)
+            .then((res: any) => res[1]),
+          pairContract.balanceOf(account),
+          pairContract.totalSupply(),
+        ]);
 
       setPairInfo({
-        reserveA: ethers.utils.formatEther(reserveA),
-        reserveB: ethers.utils.formatEther(reserveB),
-        lpTokenBalance: ethers.utils.formatEther(lpTokenBalance),
-        totalSupply: ethers.utils.formatEther(totalSupply),
+        reserveA: ethers.formatUnits(reserveA, decimalsA),
+        reserveB: ethers.formatUnits(reserveB, decimalsB),
+        lpTokenBalance: ethers.formatUnits(lpTokenBalance, 18),
+        totalSupply: ethers.formatUnits(totalSupply, 18),
       });
     } catch (error) {
       console.error("Error refreshing balances:", error);
@@ -162,37 +113,27 @@ export const DexProvider: React.FC<DexProviderProps> = ({ children }) => {
     }
   };
 
-  const calculateSwapAmount = async (
-    amountIn: string,
-    tokenIn: string
-  ): Promise<string> => {
-    if (!routerContract || amountIn === "" || parseFloat(amountIn) === 0) {
-      return "0";
-    }
-
+  const calculateSwapAmount = async (amountIn: string, tokenIn: string) => {
+    if (!routerContract || !amountIn || parseFloat(amountIn) === 0) return "0";
     try {
-      const tokenInAddress =
-        tokenIn === CONTRACT_ADDRESSES.TokenA
-          ? CONTRACT_ADDRESSES.TokenA
-          : CONTRACT_ADDRESSES.TokenB;
       const tokenOutAddress =
         tokenIn === CONTRACT_ADDRESSES.TokenA
           ? CONTRACT_ADDRESSES.TokenB
           : CONTRACT_ADDRESSES.TokenA;
-
       const [reserveIn, reserveOut] = await routerContract.getReserves(
-        tokenInAddress,
+        tokenIn,
         tokenOutAddress
       );
-
-      const parsedAmountIn = ethers.utils.parseEther(amountIn);
+      const parsedAmountIn = ethers.parseUnits(
+        amountIn,
+        tokenA?.decimals || 18
+      );
       const amountOut = await routerContract.getAmountOut(
         parsedAmountIn,
         reserveIn,
         reserveOut
       );
-
-      return ethers.utils.formatEther(amountOut);
+      return ethers.formatUnits(amountOut, tokenB?.decimals || 18);
     } catch (error) {
       console.error("Error calculating swap amount:", error);
       return "0";
@@ -204,24 +145,26 @@ export const DexProvider: React.FC<DexProviderProps> = ({ children }) => {
     amountOutMin: string,
     tokenIn: string,
     tokenOut: string
-  ): Promise<ethers.ContractTransaction> => {
-    if (!routerContract || !signer || !account) {
-      throw new Error("Missing required contracts or wallet connection");
-    }
-
+  ) => {
+    if (!routerContract || !signer || !account)
+      throw new Error("Missing contracts or wallet");
     setLoading(true);
     try {
-      const parsedAmountIn = ethers.utils.parseEther(amountIn);
-      const parsedAmountOutMin = ethers.utils.parseEther(amountOutMin);
+      const parsedAmountIn = ethers.parseUnits(
+        amountIn,
+        tokenA?.decimals || 18
+      );
+      const parsedAmountOutMin = ethers.parseUnits(
+        amountOutMin,
+        tokenB?.decimals || 18
+      );
       const path = [tokenIn, tokenOut];
-      const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
+      const deadline = Math.floor(Date.now() / 1000) + 3600;
 
-      // Approve token spending first
       const tokenContract =
         tokenIn === CONTRACT_ADDRESSES.TokenA ? tokenAContract : tokenBContract;
       await tokenContract?.approve(routerContract.address, parsedAmountIn);
 
-      // Execute swap
       const tx = await routerContract.swapExactTokensForTokens(
         parsedAmountIn,
         parsedAmountOutMin,
@@ -229,13 +172,9 @@ export const DexProvider: React.FC<DexProviderProps> = ({ children }) => {
         account,
         deadline
       );
-
       await tx.wait();
       await refreshBalances();
       return tx;
-    } catch (error) {
-      console.error("Error executing swap:", error);
-      throw error;
     } finally {
       setLoading(false);
     }
@@ -246,30 +185,34 @@ export const DexProvider: React.FC<DexProviderProps> = ({ children }) => {
     amountB: string,
     amountAMin: string,
     amountBMin: string
-  ): Promise<ethers.ContractTransaction> => {
+  ) => {
     if (
       !routerContract ||
       !signer ||
       !account ||
       !tokenAContract ||
       !tokenBContract
-    ) {
-      throw new Error("Missing required contracts or wallet connection");
-    }
-
+    )
+      throw new Error("Missing contracts or wallet");
     setLoading(true);
     try {
-      const parsedAmountA = ethers.utils.parseEther(amountA);
-      const parsedAmountB = ethers.utils.parseEther(amountB);
-      const parsedAmountAMin = ethers.utils.parseEther(amountAMin);
-      const parsedAmountBMin = ethers.utils.parseEther(amountBMin);
-      const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
+      const parsedAmountA = ethers.parseUnits(amountA, tokenA?.decimals || 18);
+      const parsedAmountB = ethers.parseUnits(amountB, tokenB?.decimals || 18);
+      const parsedAmountAMin = ethers.parseUnits(
+        amountAMin,
+        tokenA?.decimals || 18
+      );
+      const parsedAmountBMin = ethers.parseUnits(
+        amountBMin,
+        tokenB?.decimals || 18
+      );
+      const deadline = Math.floor(Date.now() / 1000) + 3600;
 
-      // Approve token spending first
-      await tokenAContract.approve(routerContract.address, parsedAmountA);
-      await tokenBContract.approve(routerContract.address, parsedAmountB);
+      await Promise.all([
+        tokenAContract.approve(routerContract.address, parsedAmountA),
+        tokenBContract.approve(routerContract.address, parsedAmountB),
+      ]);
 
-      // Add liquidity
       const tx = await routerContract.addLiquidity(
         CONTRACT_ADDRESSES.TokenA,
         CONTRACT_ADDRESSES.TokenB,
@@ -280,13 +223,9 @@ export const DexProvider: React.FC<DexProviderProps> = ({ children }) => {
         account,
         deadline
       );
-
       await tx.wait();
       await refreshBalances();
       return tx;
-    } catch (error) {
-      console.error("Error adding liquidity:", error);
-      throw error;
     } finally {
       setLoading(false);
     }
@@ -296,22 +235,24 @@ export const DexProvider: React.FC<DexProviderProps> = ({ children }) => {
     liquidity: string,
     amountAMin: string,
     amountBMin: string
-  ): Promise<ethers.ContractTransaction> => {
-    if (!routerContract || !signer || !account || !pairContract) {
-      throw new Error("Missing required contracts or wallet connection");
-    }
-
+  ) => {
+    if (!routerContract || !signer || !account || !pairContract)
+      throw new Error("Missing contracts or wallet");
     setLoading(true);
     try {
-      const parsedLiquidity = ethers.utils.parseEther(liquidity);
-      const parsedAmountAMin = ethers.utils.parseEther(amountAMin);
-      const parsedAmountBMin = ethers.utils.parseEther(amountBMin);
-      const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
+      const parsedLiquidity = ethers.parseUnits(liquidity, 18);
+      const parsedAmountAMin = ethers.parseUnits(
+        amountAMin,
+        tokenA?.decimals || 18
+      );
+      const parsedAmountBMin = ethers.parseUnits(
+        amountBMin,
+        tokenB?.decimals || 18
+      );
+      const deadline = Math.floor(Date.now() / 1000) + 3600;
 
-      // Approve LP token spending first
       await pairContract.approve(routerContract.address, parsedLiquidity);
 
-      // Remove liquidity
       const tx = await routerContract.removeLiquidity(
         CONTRACT_ADDRESSES.TokenA,
         CONTRACT_ADDRESSES.TokenB,
@@ -321,17 +262,17 @@ export const DexProvider: React.FC<DexProviderProps> = ({ children }) => {
         account,
         deadline
       );
-
       await tx.wait();
       await refreshBalances();
       return tx;
-    } catch (error) {
-      console.error("Error removing liquidity:", error);
-      throw error;
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (account && tokenAContract && tokenBContract) refreshBalances();
+  }, [account, tokenAContract, tokenBContract]);
 
   return (
     <DexContext.Provider

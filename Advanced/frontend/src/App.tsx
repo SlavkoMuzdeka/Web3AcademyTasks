@@ -1,26 +1,25 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import React from "react";
+import SwapForm from "./components/SwapForm";
+import { DexProvider } from "./contexts/DexContext";
+import { Web3Provider } from "./contexts/Web3Context";
+import LiquidityForm from "./components/LiquidityForm";
+import BalanceDisplay from "./components/BalanceDisplay";
+import ConnectWalletButton from "./components/ConnectWalletButton";
 
-function App() {
+const App: React.FC = () => {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <Web3Provider>
+      <DexProvider>
+        <div className="max-w-2xl mx-auto p-4">
+          <h1 className="text-3xl font-bold mb-6 text-center">Mini DEX</h1>
+          <ConnectWalletButton />
+          <BalanceDisplay />
+          <SwapForm />
+          <LiquidityForm />
+        </div>
+      </DexProvider>
+    </Web3Provider>
   );
-}
+};
 
 export default App;
